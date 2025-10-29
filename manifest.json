@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Custom Letterboxd Posters",
+  "version": "1.0",
+  "description": "Permet de changer localement les posters Letterboxd",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://letterboxd.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
