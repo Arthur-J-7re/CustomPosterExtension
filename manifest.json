@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Custom Letterboxd Posters Bêta",
+  "name": "Custom Letterboxd Posters",
   "version": "1.0",
-  "description": "Permet de changer localement les posters Letterboxd CETTE EXTENSION EST POUR LES TESTS BÊTA",
+  "description": "Permet de changer localement les posters Letterboxd",
   "permissions": ["storage", "activeTab", "scripting"],
   "action": {
     "default_icon": {
