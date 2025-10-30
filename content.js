@@ -24,17 +24,19 @@ function getUserFromUrl(logUser) {
 // Récupérer les posters d'un utilisateur
 // ----------------------------
 function fetchUserPosters(username) {
-    fetch(`http://localhost:3000/${username}`) // ou /posters si tu crées cette route
+    console.log("Fetching posters for user:", username);
+    fetch(`https://customposter.onrender.com/${username}`,{
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    }) // ou /posters si tu crées cette route
         .then(res => res.json())
         .then(posters => {
-            console.log(`🎨 Posters de ${username}:`, posters);
+            console.log("Posters fetched:", posters);
             chrome.storage.local.get("customPosters", (data) => {
                 const lsposters = data.customPosters || {};
                 lsposters[username] = posters;
 
-                chrome.storage.local.set({ customPosters: lsposters }, () => {
-                    console.log(`💾 Poster sauvegardé pour ${username}`);
-                });
+                chrome.storage.local.set({ customPosters: lsposters });
                 
             });
         })
@@ -74,11 +76,12 @@ if (urlUser) {
 
     
     const filmWindowSlug = getFilmWindow();
+    console.log("Film page slug:", filmWindowSlug);
     var filmSlug = "";
     if (filmWindowSlug) {
         filmSlug = getFilmSlug();
-        console.log("🎬 Slug du film détecté (page film) :", filmSlug);
     } 
+    console.log("Detected film slug:", filmSlug);
 
     // ----------------------------
     // Remplace l'image si elle diffère
@@ -98,7 +101,6 @@ if (urlUser) {
     // Application du poster principal avec vérification continue
     // ----------------------------
     function applyMainPoster(url) {
-        console.log("🖼️ Application du poster principal…");
         let stableCount = 0;
 
         const interval = setInterval(() => {
@@ -109,8 +111,6 @@ if (urlUser) {
             imgs.forEach(img => {
                 if (forcePoster(img, url)) changed = true;
             });
-
-            if (changed) console.log("✅ Poster principal appliqué ou rétabli.");
 
             if (!changed) stableCount++;
             else stableCount = 0;
@@ -182,7 +182,6 @@ if (urlUser) {
 
     // Boucle qui tourne constamment
     function startUniversalLoop(postersMap) {
-        console.log("🔁 Démarrage de la boucle universelle des posters…", postersMap);
         setInterval(() => replaceAllVisiblePosters(postersMap), 100);
     }
 
@@ -195,13 +194,10 @@ if (urlUser) {
 
         // Si on est sur une page de film → appliquer le poster principal
         if (filmSlug && posters[filmSlug]) {
-            console.log("🎬 Poster personnalisé détecté pour ce film.", filmSlug, userPoster);
             customPosterUrl = posters[filmSlug];
             applyMainPoster(customPosterUrl);
             observePopup();
-        } else {
-            console.log("echec pour", filmSlug, posters);
-        }
+        } 
 
         // Toujours activer la boucle universelle
         startUniversalLoop(posters);
@@ -215,23 +211,42 @@ if (urlUser) {
         if (!actionsPanel || document.querySelector(".custom-poster-btn")) return;
 
         const customBtn = document.createElement("li");
-        customBtn.className = "custom-poster-btn";
+        customBtn.className = "custom-poster-btn menu-item";
+        const customDeleteBtn = document.createElement("li");
+        customDeleteBtn.className = "custom-poster-delete-btn menu-item";
 
         const button = document.createElement("a");
         button.href = "#";
         button.textContent = "Choose your poster";
         button.style.color = "#f0f0f0";
         button.style.fontWeight = "600";
+        
+        const deleteButton = document.createElement("a");
+        deleteButton.href = "#";
+        deleteButton.textContent = "Delete custom poster";
+        deleteButton.style.color = "#f0f0f0";
+        deleteButton.style.fontWeight = "600";
 
         customBtn.appendChild(button);
+        customDeleteBtn.appendChild(deleteButton);
+
         actionsPanel.appendChild(customBtn);
+        actionsPanel.appendChild(customDeleteBtn);
 
         button.addEventListener("click", (e) => {
             e.preventDefault();
             openPosterModal();
         });
+
+        deleteButton.addEventListener("click", (e) => {
+            deletePoster();
+        });
+
+        
     }
-    injectButton();
+    if (filmSlug){
+        injectButton();
+    }
     
     // ----------------------------
     // Fenêtre modale (inchangée)
@@ -330,31 +345,29 @@ if (urlUser) {
                 formData.append("poster", fileInput.files[0]);
                 formData.append("film", filmSlug);
                 formData.append("username",loggedUser);
-                console.log("Envoi du fichier au serveur...");
-                fetch("http://localhost:3000/upload", {
+                fetch("https://customposter.onrender.com/upload", {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: formData,
-                }).then(response => {console.log("ça répond hein", response);return response.json()})
+                }).then(response => {return response.json()})
                 .then(data => {
                     if (data && data.url) {
-                        console.log("Image uploadée avec succès :", data.url);
                         savePoster(data.url);
-                    } else {
-                        console.log("Réponse inattendue du serveur :", data);
-                    }
+                    } 
                 });
                 modal.remove();
 
             } else if (urlInput.value.trim() !== "") {
+                console.log(filmSlug, loggedUser, urlInput.value.trim());
                 const formData = new FormData();
                 formData.append("link", urlInput.value.trim());
                 formData.append("film", filmSlug);
                 formData.append("username",loggedUser);
-                fetch("http://localhost:3000/link", {
+                fetch("https://customposter.onrender.com/link", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ film: filmSlug, username: loggedUser, link: urlInput.value.trim() })
-                }).then(response => {console.log("ça répond hein", response);return response.json()})
+                }).then(response => {return response.json()})
                 .then(data => {
                     savePoster(urlInput.value.trim());
                 })
@@ -365,31 +378,39 @@ if (urlUser) {
         });
     }
 
+    const deletePoster = () => {
+        chrome.storage.local.get("customPosters", (data) => {
+            const posters = data.customPosters || {};
+            if (posters[loggedUser] && posters[loggedUser][filmSlug]) {
+                fetch("https://customposter.onrender.com/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ film: filmSlug, username: loggedUser }),
+                }).then(response => {
+                    if (response.ok) {
+                        delete posters[loggedUser][filmSlug];
+                        chrome.storage.local.set({ customPosters: posters });
+                        location.reload();
+                    }
+                });
+
+            }
+        });   
+    }
+
     // ----------------------------
     // Sauvegarde + Application immédiate
     // ----------------------------
     function savePoster(newPosterUrl) {
         chrome.storage.local.get("customPosters", (data) => {
-            console.log(newPosterUrl, filmSlug,data);
             const posters = data.customPosters || {};
             posters[loggedUser][filmSlug] = newPosterUrl;
 
             chrome.storage.local.set({ customPosters: posters }, () => {
-                console.log(`💾 Poster sauvegardé pour ${filmSlug}`);
                 customPosterUrl = newPosterUrl;
                 applyMainPoster(newPosterUrl);
                 observePopup();
             });
         });
-
-        chrome.storage.local.get("customPosters", (data) => {
-                const lsposters = data.customPosters || {};
-                lsposters[username] = posters;
-
-                chrome.storage.local.set({ customPosters: lsposters }, () => {
-                    console.log(`💾 Poster sauvegardé pour ${username}`);
-                });
-                
-            });
     }
 })();
