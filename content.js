@@ -347,7 +347,6 @@ if (urlUser) {
                 formData.append("username",loggedUser);
                 fetch("https://customposter.onrender.com/upload", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
                     body: formData,
                 }).then(response => {return response.json()})
                 .then(data => {
